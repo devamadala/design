@@ -41,15 +41,25 @@ jobs:
         ISSUE_NUMBER=${{ github.event.issue.number }}
         TITLE=$(gh issue view "$ISSUE_NUMBER" -R devamadala/design --json title -q '.title')
         BODY=$(gh issue view "$ISSUE_NUMBER" -R devamadala/design --json body -q '.body')
-        echo "title=$TITLE" >> $GITHUB_OUTPUT
-        echo "body=$BODY" >> $GITHUB_OUTPUT
+        {
+          echo "title<<EOF"
+          echo "$TITLE"
+          echo "EOF"
+          echo "body<<EOF"
+          echo "$BODY"
+          echo "EOF"
+        } >> $GITHUB_OUTPUT
 
     - name: Fetch all comments on Design issue
       id: all_comments
       run: |
         ISSUE_NUMBER=${{ github.event.issue.number }}
         COMMENTS=$(gh issue view "$ISSUE_NUMBER" -R devamadala/design --json comments -q '.comments[].body' | jq -Rs 'gsub("\\n"; "\n")')
-        echo "comments=$COMMENTS" >> $GITHUB_OUTPUT
+        {
+          echo "comments<<EOF"
+          echo "$COMMENTS"
+          echo "EOF"
+        } >> $GITHUB_OUTPUT
 
     - name: Fetch template from Dev repo
       id: dev_template
@@ -86,7 +96,11 @@ jobs:
           -t "${{ steps.design_issue.outputs.title }}" \
           -b "${{ steps.gemini.outputs.body }}" \
           -q '.url')
-        echo "url=$ISSUE_URL" >> $GITHUB_OUTPUT
+        {
+          echo "url<<EOF"
+          echo "$ISSUE_URL"
+          echo "EOF"
+        } >> $GITHUB_OUTPUT
 
     - name: Comment back in Design issue
       run: |
