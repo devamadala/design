@@ -84,7 +84,7 @@ jobs:
         echo "TITLE: $TITLE"
         echo "BODY: $BODY"
 
-        PROMPT="You are a helpful assistant formatting GitHub issues.\n\nUse this issue template :\n --- \n$TEMPLATE\n --- \n\nOriginal issue from the Design repo:\nTitle: $TITLE\n\nBody:\n$BODY\n\nHere are all the comments on the issue:\n$COMMENTS\n\nFormat a new issue for the Dev repo using the template above, incorporating any useful details from the comments. \n\n Do not include any other text in your response other than the formatted issue based on the template."
+        PROMPT="You are a helpful assistant formatting GitHub issues.\n\nUse this issue template :\n --- \n$TEMPLATE\n --- \n\nOriginal issue from the Design repo:\nTitle: $TITLE\n\nBody:\n$BODY\n\nHere are all the comments on the issue:\n$COMMENTS\n\nFormat a new issue for the Dev repo using the template above, incorporating any useful details from the comments. \n\n Do not include any other text in your response other than the formatted issue based on the template. If there is a design UI/UX change always say 'YES' to design review. If there is a design UI/UX change always say 'Yes' to design review."
         echo "PROMPT:"
         echo "$PROMPT"
         echo "Length of PROMPT: ${#PROMPT}"
