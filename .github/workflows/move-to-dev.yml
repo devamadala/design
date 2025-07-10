@@ -25,7 +25,7 @@ jobs:
         echo "Not a valid move-to-dev command. Exiting."
         exit 0
 
-    - name: Determine command and template
+    - name: Determine template file
       id: config
       run: |
         COMMENT="${{ github.event.comment.body }}"
@@ -35,7 +35,7 @@ jobs:
           echo "template_file=feature_request.md" >> $GITHUB_OUTPUT
         fi
 
-    - name: Fetch issue content from Design
+    - name: Fetch issue title and body
       id: design_issue
       run: |
         ISSUE_NUMBER=${{ github.event.issue.number }}
@@ -57,7 +57,7 @@ jobs:
         curl -s "https://raw.githubusercontent.com/devamadala/dev/main/.github/ISSUE_TEMPLATE/${{ steps.config.outputs.template_file }}" -o template.md
         echo "template=$(cat template.md | base64 -w 0)" >> $GITHUB_OUTPUT
 
-    - name: Format with Gemini using body + comments
+    - name: Format with Gemini
       id: gemini
       run: |
         TEMPLATE=$(echo "${{ steps.dev_template.outputs.template }}" | base64 --decode)
@@ -65,37 +65,20 @@ jobs:
         BODY="${{ steps.design_issue.outputs.body }}"
         COMMENTS=$(echo "${{ steps.all_comments.outputs.comments }}" | jq -r)
 
-        PROMPT=$(cat <<EOF
-You are a helpful assistant formatting GitHub issues.
-
-Use this issue template from the Dev repo:
----
-$TEMPLATE
----
-
-Original issue from the Design repo:
-Title: $TITLE
-
-Body:
-$BODY
-
-Here are all the comments on the issue:
-$COMMENTS
-
-Format a new issue for the Dev repo using the template above, incorporating any useful details from the comments.
-EOF
-        )
+        PROMPT="You are a helpful assistant formatting GitHub issues.\n\nUse this issue template from the Dev repo:\n---\n$TEMPLATE\n---\n\nOriginal issue from the Design repo:\nTitle: $TITLE\n\nBody:\n$BODY\n\nHere are all the comments on the issue:\n$COMMENTS\n\nFormat a new issue for the Dev repo using the template above, incorporating any useful details from the comments."
 
         RESPONSE=$(curl -s -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=$GEMINI_API_KEY" \
           -H "Content-Type: application/json" \
           -d "$(jq -n --arg prompt "$PROMPT" '{contents: [{role: "user", parts: [{text: $prompt}]}]}')")
 
         FORMATTED_BODY=$(echo "$RESPONSE" | jq -r '.candidates[0].content.parts[0].text')
-        echo "body<<EOF" >> $GITHUB_OUTPUT
-        echo "$FORMATTED_BODY" >> $GITHUB_OUTPUT
-        echo "EOF" >> $GITHUB_OUTPUT
+        {
+          echo "body<<EOF"
+          echo "$FORMATTED_BODY"
+          echo "EOF"
+        } >> $GITHUB_OUTPUT
 
-    - name: Create issue in Dev
+    - name: Create issue in Dev repo
       id: create_dev_issue
       run: |
         ISSUE_URL=$(gh issue create \
