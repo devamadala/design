@@ -78,15 +78,19 @@ jobs:
 
     - name: Format with Gemini
       id: gemini
+      env:
+        COMMENTS: ${{ steps.all_comments.outputs.comments }}
+        TEMPLATE: ${{ steps.dev_template.outputs.template }}
+        TITLE: ${{ steps.design_issue.outputs.title }}
+        BODY: ${{ steps.design_issue.outputs.body }}
       run: |
-        TEMPLATE=$(echo "${{ steps.dev_template.outputs.template }}" | base64 --decode)
+        TEMPLATE=$(echo "$TEMPLATE" | base64 --decode)
         echo "Decoded TEMPLATE:"
         echo "$TEMPLATE"
         echo "Length of TEMPLATE: ${#TEMPLATE}"
-        TITLE="${{ steps.design_issue.outputs.title }}"
-        BODY="${{ steps.design_issue.outputs.body }}"
-        COMMENTS="${{ steps.all_comments.outputs.comments }}"
         echo "COMMENTS RAW: $COMMENTS"
+        echo "TITLE: $TITLE"
+        echo "BODY: $BODY"
 
         PROMPT="You are a helpful assistant formatting GitHub issues.\n\nUse this issue template from the Dev repo:\n---\n$TEMPLATE\n---\n\nOriginal issue from the Design repo:\nTitle: $TITLE\n\nBody:\n$BODY\n\nHere are all the comments on the issue:\n$COMMENTS\n\nFormat a new issue for the Dev repo using the template above, incorporating any useful details from the comments."
         echo "PROMPT:"
