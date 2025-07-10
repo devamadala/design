@@ -35,25 +35,35 @@ jobs:
           echo "template_file=feature_request.md" >> $GITHUB_OUTPUT
         fi
 
-    - name: Fetch issue from Design repo
+    - name: Fetch issue content from Design
       id: design_issue
       run: |
-        issue=$(gh issue view "${{ github.event.issue.number }}" --json title,body -q '{title: .title, body: .body}')
-        echo "title=$(echo "$issue" | jq -r '.title')" >> $GITHUB_OUTPUT
-        echo "body=$(echo "$issue" | jq -r '.body')" >> $GITHUB_OUTPUT
+        ISSUE_NUMBER=${{ github.event.issue.number }}
+        TITLE=$(gh issue view "$ISSUE_NUMBER" --json title -q '.title')
+        BODY=$(gh issue view "$ISSUE_NUMBER" --json body -q '.body')
+        echo "title=$TITLE" >> $GITHUB_OUTPUT
+        echo "body=$BODY" >> $GITHUB_OUTPUT
 
-    - name: Fetch selected template from Dev repo
+    - name: Fetch all comments on Design issue
+      id: all_comments
+      run: |
+        ISSUE_NUMBER=${{ github.event.issue.number }}
+        COMMENTS=$(gh issue view "$ISSUE_NUMBER" --json comments -q '.comments[].body' | jq -Rs 'gsub("\\n"; "\n")')
+        echo "comments=$COMMENTS" >> $GITHUB_OUTPUT
+
+    - name: Fetch template from Dev repo
       id: dev_template
       run: |
         curl -s "https://raw.githubusercontent.com/devamadala/dev/main/.github/ISSUE_TEMPLATE/${{ steps.config.outputs.template_file }}" -o template.md
         echo "template=$(cat template.md | base64 -w 0)" >> $GITHUB_OUTPUT
 
-    - name: Format using Gemini
+    - name: Format with Gemini using body + comments
       id: gemini
       run: |
         TEMPLATE=$(echo "${{ steps.dev_template.outputs.template }}" | base64 --decode)
         TITLE="${{ steps.design_issue.outputs.title }}"
         BODY="${{ steps.design_issue.outputs.body }}"
+        COMMENTS=$(echo "${{ steps.all_comments.outputs.comments }}" | jq -r)
 
         PROMPT=$(cat <<EOF
 You are a helpful assistant formatting GitHub issues.
@@ -69,7 +79,10 @@ Title: $TITLE
 Body:
 $BODY
 
-Format a new issue for the Dev repo using the template above.
+Here are all the comments on the issue:
+$COMMENTS
+
+Format a new issue for the Dev repo using the template above, incorporating any useful details from the comments.
 EOF
         )
 
@@ -82,7 +95,7 @@ EOF
         echo "$FORMATTED_BODY" >> $GITHUB_OUTPUT
         echo "EOF" >> $GITHUB_OUTPUT
 
-    - name: Create issue in Dev repo
+    - name: Create issue in Dev
       id: create_dev_issue
       run: |
         ISSUE_URL=$(gh issue create \
@@ -92,7 +105,7 @@ EOF
           -q '.url')
         echo "url=$ISSUE_URL" >> $GITHUB_OUTPUT
 
-    - name: Comment back on Design issue
+    - name: Comment back in Design issue
       run: |
         gh issue comment "${{ github.event.issue.number }}" \
           --body "✅ Issue has been forwarded to the Dev repo: ${{ steps.create_dev_issue.outputs.url }}"
