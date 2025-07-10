@@ -80,26 +80,42 @@ jobs:
       id: gemini
       run: |
         TEMPLATE=$(echo "${{ steps.dev_template.outputs.template }}" | base64 --decode)
+        echo "Decoded TEMPLATE:"
+        echo "$TEMPLATE"
+        echo "Length of TEMPLATE: ${#TEMPLATE}"
         TITLE="${{ steps.design_issue.outputs.title }}"
         BODY="${{ steps.design_issue.outputs.body }}"
         COMMENTS=$(echo "${{ steps.all_comments.outputs.comments }}" | jq -r)
 
         PROMPT="You are a helpful assistant formatting GitHub issues.\n\nUse this issue template from the Dev repo:\n---\n$TEMPLATE\n---\n\nOriginal issue from the Design repo:\nTitle: $TITLE\n\nBody:\n$BODY\n\nHere are all the comments on the issue:\n$COMMENTS\n\nFormat a new issue for the Dev repo using the template above, incorporating any useful details from the comments."
+        echo "PROMPT:"
+        echo "$PROMPT"
+        echo "Length of PROMPT: ${#PROMPT}"
+        echo "First 100 chars of PROMPT: ${PROMPT:0:100}"
 
-        RESPONSE=$(curl -s -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent" \
+        REQUEST_PAYLOAD=$(jq -n --arg prompt "$PROMPT" '{contents: [{parts: [{text: $prompt}]}]}')
+        echo "REQUEST_PAYLOAD:"
+        echo "$REQUEST_PAYLOAD"
+        echo "Length of REQUEST_PAYLOAD: ${#REQUEST_PAYLOAD}"
+        echo "First 100 chars of REQUEST_PAYLOAD: ${REQUEST_PAYLOAD:0:100}"
+
+        HTTP_RESPONSE=$(curl -s -w "HTTPSTATUS:%{http_code}" -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent" \
           -H "x-goog-api-key: $GEMINI_API_KEY" \
           -H "Content-Type: application/json" \
-          -d "$(jq -n --arg prompt "$PROMPT" '{contents: [{parts: [{text: $prompt}]}]}')")
+          -d "$REQUEST_PAYLOAD")
 
-        # Print the response for debugging
-        echo "Gemini API response: $RESPONSE"
+        HTTP_BODY=$(echo "$HTTP_RESPONSE" | sed -e 's/HTTPSTATUS:.*//g')
+        HTTP_STATUS=$(echo "$HTTP_RESPONSE" | tr -d '\n' | sed -e 's/.*HTTPSTATUS://')
+
+        echo "Gemini API HTTP status: $HTTP_STATUS"
+        echo "Gemini API response: $HTTP_BODY"
 
         # Check if the response is valid JSON and contains the expected field
-        if echo "$RESPONSE" | jq -e '.candidates[0].content.parts[0].text' > /dev/null 2>&1; then
-          FORMATTED_BODY=$(echo "$RESPONSE" | jq -r '.candidates[0].content.parts[0].text')
+        if echo "$HTTP_BODY" | jq -e '.candidates[0].content.parts[0].text' > /dev/null 2>&1; then
+          FORMATTED_BODY=$(echo "$HTTP_BODY" | jq -r '.candidates[0].content.parts[0].text')
         else
           echo "Gemini API call failed or returned invalid JSON."
-          echo "$RESPONSE"
+          echo "$HTTP_BODY"
           exit 1
         fi
 
