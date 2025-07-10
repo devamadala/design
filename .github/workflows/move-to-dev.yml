@@ -67,15 +67,6 @@ jobs:
         curl -s "https://raw.githubusercontent.com/devamadala/dev/main/.github/ISSUE_TEMPLATE/${{ steps.config.outputs.template_file }}" -o template.md
         echo "template=$(cat template.md | base64 -w 0)" >> $GITHUB_OUTPUT
 
-    - name: Debug Gemini Key
-      run: |
-        if [ -z "$GEMINI_API_KEY" ]; then
-          echo "GEMINI_API_KEY is NOT set"
-          exit 1
-        else
-          echo "GEMINI_API_KEY is set"
-        fi
-
     - name: Format with Gemini
       id: gemini
       env:
@@ -148,8 +139,3 @@ jobs:
           echo "$ISSUE_URL"
           echo "EOF"
         } >> $GITHUB_OUTPUT
-
-    - name: Comment back in Design issue
-      run: |
-        gh issue comment "${{ github.event.issue.number }}" -R devamadala/design \
-          --body "✅ Issue has been forwarded to the Dev repo: ${{ steps.create_dev_issue.outputs.url }}"
