@@ -39,8 +39,8 @@ jobs:
       id: design_issue
       run: |
         ISSUE_NUMBER=${{ github.event.issue.number }}
-        TITLE=$(gh issue view "$ISSUE_NUMBER" --json title -q '.title')
-        BODY=$(gh issue view "$ISSUE_NUMBER" --json body -q '.body')
+        TITLE=$(gh issue view "$ISSUE_NUMBER" -R devamadala/design --json title -q '.title')
+        BODY=$(gh issue view "$ISSUE_NUMBER" -R devamadala/design --json body -q '.body')
         echo "title=$TITLE" >> $GITHUB_OUTPUT
         echo "body=$BODY" >> $GITHUB_OUTPUT
 
@@ -48,7 +48,7 @@ jobs:
       id: all_comments
       run: |
         ISSUE_NUMBER=${{ github.event.issue.number }}
-        COMMENTS=$(gh issue view "$ISSUE_NUMBER" --json comments -q '.comments[].body' | jq -Rs 'gsub("\\n"; "\n")')
+        COMMENTS=$(gh issue view "$ISSUE_NUMBER" -R devamadala/design --json comments -q '.comments[].body' | jq -Rs 'gsub("\\n"; "\n")')
         echo "comments=$COMMENTS" >> $GITHUB_OUTPUT
 
     - name: Fetch template from Dev repo
@@ -90,5 +90,5 @@ jobs:
 
     - name: Comment back in Design issue
       run: |
-        gh issue comment "${{ github.event.issue.number }}" \
+        gh issue comment "${{ github.event.issue.number }}" -R devamadala/design \
           --body "✅ Issue has been forwarded to the Dev repo: ${{ steps.create_dev_issue.outputs.url }}"
