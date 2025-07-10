@@ -17,6 +17,12 @@ jobs:
       GH_TOKEN: ${{ secrets.GH_PAT }}
 
     steps:
+    - name: Exit if actor is bot
+      if: github.actor == 'github-actions[bot]'
+      run: |
+        echo "Comment made by bot, exiting."
+        exit 0
+
     - name: Exit if comment is not a valid command
       if: |
         !startsWith(github.event.comment.body, '/move-to-dev-bug') &&
@@ -84,15 +90,15 @@ jobs:
         TITLE: ${{ steps.design_issue.outputs.title }}
         BODY: ${{ steps.design_issue.outputs.body }}
       run: |
-        TEMPLATE=$(echo "$TEMPLATE" | base64 --decode)
-        echo "Decoded TEMPLATE:"
+        TEMPLATE=$(echo "$TEMPLATE" | base64 --decode | awk 'f;/^---/{f=1;next}')
+        echo "Decoded TEMPLATE (YAML front matter removed):"
         echo "$TEMPLATE"
         echo "Length of TEMPLATE: ${#TEMPLATE}"
         echo "COMMENTS RAW: $COMMENTS"
         echo "TITLE: $TITLE"
         echo "BODY: $BODY"
 
-        PROMPT="You are a helpful assistant formatting GitHub issues.\n\nUse this issue template from the Dev repo:\n---\n$TEMPLATE\n---\n\nOriginal issue from the Design repo:\nTitle: $TITLE\n\nBody:\n$BODY\n\nHere are all the comments on the issue:\n$COMMENTS\n\nFormat a new issue for the Dev repo using the template above, incorporating any useful details from the comments."
+        PROMPT="You are a helpful assistant formatting GitHub issues.\n\n Use this issue template :\n---\n$TEMPLATE\n---\n\nOriginal issue from the Design repo:\nTitle: $TITLE\n\nBody:\n$BODY\n\nHere are all the comments on the issue:\n$COMMENTS\n\nFormat a new issue for the Dev repo using the template above, incorporating any useful details from the comments."
         echo "PROMPT:"
         echo "$PROMPT"
         echo "Length of PROMPT: ${#PROMPT}"
