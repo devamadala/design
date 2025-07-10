@@ -132,12 +132,17 @@ jobs:
 
     - name: Create issue in Dev repo
       id: create_dev_issue
+      env:
+        ISSUE_BODY: ${{ steps.gemini.outputs.body }}
+        TITLE: ${{ steps.design_issue.outputs.title }}
       run: |
-        ISSUE_URL=$(gh issue create \
+        echo "$ISSUE_BODY" > issue_body.txt
+        OUTPUT=$(gh issue create \
           -R devamadala/dev \
-          -t "${{ steps.design_issue.outputs.title }}" \
-          -b "${{ steps.gemini.outputs.body }}" \
-          -q '.url')
+          -t "$TITLE" \
+          -F issue_body.txt)
+        echo "$OUTPUT"
+        ISSUE_URL=$(echo "$OUTPUT" | grep -Eo 'https://github.com/[^ ]+/issues/[0-9]+')
         {
           echo "url<<EOF"
           echo "$ISSUE_URL"
