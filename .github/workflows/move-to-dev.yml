@@ -67,6 +67,15 @@ jobs:
         curl -s "https://raw.githubusercontent.com/devamadala/dev/main/.github/ISSUE_TEMPLATE/${{ steps.config.outputs.template_file }}" -o template.md
         echo "template=$(cat template.md | base64 -w 0)" >> $GITHUB_OUTPUT
 
+    - name: Debug Gemini Key
+      run: |
+        if [ -z "$GEMINI_API_KEY" ]; then
+          echo "GEMINI_API_KEY is NOT set"
+          exit 1
+        else
+          echo "GEMINI_API_KEY is set"
+        fi
+
     - name: Format with Gemini
       id: gemini
       run: |
