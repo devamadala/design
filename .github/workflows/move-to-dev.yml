@@ -1,0 +1,98 @@
+name: Move Issue to Dev
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  move-to-dev:
+    runs-on: ubuntu-latest
+
+    env:
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+    - name: Exit if comment is not a valid command
+      if: |
+        !startsWith(github.event.comment.body, '/move-to-dev-bug') &&
+        !startsWith(github.event.comment.body, '/move-to-dev-feature')
+      run: |
+        echo "Not a valid move-to-dev command. Exiting."
+        exit 0
+
+    - name: Determine command and template
+      id: config
+      run: |
+        COMMENT="${{ github.event.comment.body }}"
+        if [[ "$COMMENT" == "/move-to-dev-bug" ]]; then
+          echo "template_file=bug_report.md" >> $GITHUB_OUTPUT
+        elif [[ "$COMMENT" == "/move-to-dev-feature" ]]; then
+          echo "template_file=feature_request.md" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Fetch issue from Design repo
+      id: design_issue
+      run: |
+        issue=$(gh issue view "${{ github.event.issue.number }}" --json title,body -q '{title: .title, body: .body}')
+        echo "title=$(echo "$issue" | jq -r '.title')" >> $GITHUB_OUTPUT
+        echo "body=$(echo "$issue" | jq -r '.body')" >> $GITHUB_OUTPUT
+
+    - name: Fetch selected template from Dev repo
+      id: dev_template
+      run: |
+        curl -s "https://raw.githubusercontent.com/devamadala/dev/main/.github/ISSUE_TEMPLATE/${{ steps.config.outputs.template_file }}" -o template.md
+        echo "template=$(cat template.md | base64 -w 0)" >> $GITHUB_OUTPUT
+
+    - name: Format using Gemini
+      id: gemini
+      run: |
+        TEMPLATE=$(echo "${{ steps.dev_template.outputs.template }}" | base64 --decode)
+        TITLE="${{ steps.design_issue.outputs.title }}"
+        BODY="${{ steps.design_issue.outputs.body }}"
+
+        PROMPT=$(cat <<EOF
+You are a helpful assistant formatting GitHub issues.
+
+Use this issue template from the Dev repo:
+---
+$TEMPLATE
+---
+
+Original issue from the Design repo:
+Title: $TITLE
+
+Body:
+$BODY
+
+Format a new issue for the Dev repo using the template above.
+EOF
+        )
+
+        RESPONSE=$(curl -s -X POST "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=$GEMINI_API_KEY" \
+          -H "Content-Type: application/json" \
+          -d "$(jq -n --arg prompt "$PROMPT" '{contents: [{role: "user", parts: [{text: $prompt}]}]}')")
+
+        FORMATTED_BODY=$(echo "$RESPONSE" | jq -r '.candidates[0].content.parts[0].text')
+        echo "body<<EOF" >> $GITHUB_OUTPUT
+        echo "$FORMATTED_BODY" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+
+    - name: Create issue in Dev repo
+      id: create_dev_issue
+      run: |
+        ISSUE_URL=$(gh issue create \
+          -R devamadala/dev \
+          -t "${{ steps.design_issue.outputs.title }}" \
+          -b "${{ steps.gemini.outputs.body }}" \
+          -q '.url')
+        echo "url=$ISSUE_URL" >> $GITHUB_OUTPUT
+
+    - name: Comment back on Design issue
+      run: |
+        gh issue comment "${{ github.event.issue.number }}" \
+          --body "✅ Issue has been forwarded to the Dev repo: ${{ steps.create_dev_issue.outputs.url }}"
