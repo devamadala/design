@@ -81,7 +81,18 @@ jobs:
           -H "Content-Type: application/json" \
           -d "$(jq -n --arg prompt "$PROMPT" '{contents: [{role: "user", parts: [{text: $prompt}]}]}')")
 
-        FORMATTED_BODY=$(echo "$RESPONSE" | jq -r '.candidates[0].content.parts[0].text')
+        # Print the response for debugging
+        echo "Gemini API response: $RESPONSE"
+
+        # Check if the response is valid JSON and contains the expected field
+        if echo "$RESPONSE" | jq -e '.candidates[0].content.parts[0].text' > /dev/null 2>&1; then
+          FORMATTED_BODY=$(echo "$RESPONSE" | jq -r '.candidates[0].content.parts[0].text')
+        else
+          echo "Gemini API call failed or returned invalid JSON."
+          echo "$RESPONSE"
+          exit 1
+        fi
+
         {
           echo "body<<EOF"
           echo "$FORMATTED_BODY"
