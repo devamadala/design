@@ -17,16 +17,10 @@ jobs:
       GH_TOKEN: ${{ secrets.GH_PAT }}
 
     steps:
-    - name: Exit if actor is bot
-      if: github.actor == 'github-actions[bot]'
-      run: |
-        echo "Comment made by bot, exiting."
-        exit 0
-
-    - name: Exit if comment is not a valid command
+    - name: Exit if comment is not exactly a valid command
       if: |
-        !startsWith(github.event.comment.body, '/move-to-dev-bug') &&
-        !startsWith(github.event.comment.body, '/move-to-dev-feature')
+        github.event.comment.body != '/move-to-dev-bug' &&
+        github.event.comment.body != '/move-to-dev-feature'
       run: |
         echo "Not a valid move-to-dev command. Exiting."
         exit 0
@@ -90,7 +84,7 @@ jobs:
         TITLE: ${{ steps.design_issue.outputs.title }}
         BODY: ${{ steps.design_issue.outputs.body }}
       run: |
-        TEMPLATE=$(echo "$TEMPLATE" | base64 --decode | awk 'f;/^---/{f=1;next}')
+        TEMPLATE=$(echo "$TEMPLATE" | base64 --decode | awk '/^---/ {if (p) {p=0; next} else {p=1; next}} p')
         echo "Decoded TEMPLATE (YAML front matter removed):"
         echo "$TEMPLATE"
         echo "Length of TEMPLATE: ${#TEMPLATE}"
